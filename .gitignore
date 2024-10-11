@@ -58,3 +58,6 @@ target/
 #Docs
 _build/
 docs-env/
+
+#Mac
+.DS_Store
