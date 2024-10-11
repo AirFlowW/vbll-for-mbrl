@@ -5,8 +5,8 @@ from copy import deepcopy
 import time
 
 from model_comparison.dataset import SimpleFnDataset, viz_data
-from model_comparison.models import mlp, vbll_mlp, vbll_sngp, probabilistic_ensemble as pe, probabilistic_NN_with_softplus_for_var as probabilistic_NN
-from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble, vbll_ensemble as VBLLE
+from model_comparison.models import mlp, pnn as probabilistic_NN, vbll_mlp, vbll_sngp, probabilistic_ensemble as pe
+from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble, vbll_ensemble as VBLLE, vbll_post_train
 from model_comparison.viz import viz_model_with_mean_var as viz_w_var
 from model_comparison.viz import viz_only_mean_model as viz_wo_var
 from model_comparison.viz import viz_ensemble as viz_ensemble
@@ -45,7 +45,7 @@ if cfg_t.show_dataset:
     for dataset in datasets:
         viz_data(dataset)
 
-# Init train Probabilistic model config
+# Init train MLP model config
 if cfg_t.train_mlp:
     models_to_train.append(model_run_config('MLP', mlp.train_cfg_mlp,
         [mlp.MLP(mlp.cfg_mlp) for d in datasets], 
@@ -72,10 +72,11 @@ We can train a different VBLL model with a larger REG_WEIGHT:"""
 if cfg_t.train_vbll_kl:
     cfg = vbll_mlp.cfg_vbll
     new_cfgs = []
-    for dataset, kl_factor in zip(datasets, cfg_t.vbll_kl_weight):
-        new_cfg = deepcopy(cfg(dataset_length=len(dataset)))
-        new_cfg.REG_WEIGHT *= kl_factor
-        new_cfgs.append(new_cfg)
+    for dataset in datasets:
+        for kl_factor in cfg_t.vbll_kl_weight:
+            new_cfg = deepcopy(cfg(dataset_length=len(dataset)))
+            new_cfg.REG_WEIGHT *= kl_factor
+            new_cfgs.append(new_cfg)
     
     for kl_factor in cfg_t.vbll_kl_weight:
         kl_factor_string = "VBLL-KL-" + str(kl_factor) + 'x'
@@ -84,6 +85,13 @@ if cfg_t.train_vbll_kl:
             [vbll_mlp.VBLLMLP(cfg) for cfg in new_cfgs], 
             vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
         
+# Init train VBLL Post Train model config
+if cfg_t.train_post_train:
+    models_to_train.append(model_run_config('VBLL_POST_TRAIN', vbll_post_train.post_train_cfg,
+            [vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(dataset_length=len(dataset))) for dataset in datasets], 
+            vbll_post_train.post_train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
+
+
 # Init train VBLL Ensemble model config
 if cfg_t.train_vbll_e:
     models_to_train.append(model_run_config('VBLL_E', vbll_mlp.train_cfg_vbll,
