@@ -17,7 +17,8 @@ class VBLLMLP(nn.Module):
     self.params = nn.ModuleDict({
         'in_layer': nn.Linear(cfg.IN_FEATURES, cfg.HIDDEN_FEATURES),
         'core': nn.ModuleList([nn.Linear(cfg.HIDDEN_FEATURES, cfg.HIDDEN_FEATURES) for i in range(cfg.NUM_LAYERS)]),
-        'out_layer': vbll.Regression(cfg.HIDDEN_FEATURES, cfg.OUT_FEATURES, cfg.REG_WEIGHT, prior_scale = cfg.PRIOR_SCALE, wishart_scale = cfg.WISHART_SCALE)
+        'out_layer': vbll.Regression(cfg.HIDDEN_FEATURES, cfg.OUT_FEATURES, cfg.REG_WEIGHT, parameterization=cfg.PARAM, 
+                                     cov_rank=cfg.COV_RANK, prior_scale = cfg.PRIOR_SCALE, wishart_scale = cfg.WISHART_SCALE)
         })
 
     self.activations = nn.ModuleList([nn.ELU() for i in range(cfg.NUM_LAYERS)])
@@ -74,12 +75,13 @@ class train_cfg_vbll:
   VAL_FREQ = 100
 
 class cfg_vbll:
-    def __init__(self, dataset_length):
+    def __init__(self, dataset_length, parameterization = 'dense', cov_rank = None):
         self.REG_WEIGHT = 1./dataset_length
+        self.PARAM = parameterization
+        self.COV_RANK = cov_rank
     IN_FEATURES = 1
     HIDDEN_FEATURES = 64
     OUT_FEATURES = 1
     NUM_LAYERS = 4
-    PARAM = 'dense'
     PRIOR_SCALE = 1.
     WISHART_SCALE = .1
