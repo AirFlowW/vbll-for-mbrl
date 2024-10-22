@@ -85,6 +85,26 @@ if cfg_t.train_vbll_kl:
             [vbll_mlp.VBLLMLP(cfg) for cfg in new_cfgs], 
             vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
         
+## different parameterizations of last layer
+# Init train VBLL 'diagonal' model config
+if cfg_t.train_vbll_diagonal:
+    models_to_train.append(model_run_config('VBLL_diagonal', vbll_mlp.train_cfg_vbll,
+            [vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(dataset_length=len(dataset), parameterization='diagonal')) for dataset in datasets], 
+            vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_diagonal, None)))
+    
+# Init train VBLL 'lowrank' model config
+if cfg_t.train_vbll_lowrank:
+    models_to_train.append(model_run_config('VBLL_lowrank', vbll_mlp.train_cfg_vbll,
+            [vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(dataset_length=len(dataset), parameterization='lowrank', cov_rank=1)) for dataset in datasets], 
+            vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_lowrank, None)))
+    
+# Init train VBLL 'dense_precision' model config
+if cfg_t.train_vbll_dense_precision:
+    models_to_train.append(model_run_config('VBLL_dense_precision', vbll_mlp.train_cfg_vbll,
+            [vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(dataset_length=len(dataset), parameterization='dense_precision')) for dataset in datasets], 
+            vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_dense_precision, None)))
+## different parameterizations of last layer end ---
+        
 # Init train VBLL Post Train model config
 if cfg_t.train_post_train:
     models_to_train.append(model_run_config('VBLL_POST_TRAIN', vbll_post_train.post_train_cfg,
