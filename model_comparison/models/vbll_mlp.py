@@ -20,12 +20,12 @@ class VBLLMLP(nn.Module):
         'out_layer': vbll.Regression(cfg.HIDDEN_FEATURES, cfg.OUT_FEATURES, cfg.REG_WEIGHT, parameterization=cfg.PARAM, 
                                      cov_rank=cfg.COV_RANK, prior_scale = cfg.PRIOR_SCALE, wishart_scale = cfg.WISHART_SCALE)
         })
-
+    self.in_activation = nn.ELU()
     self.activations = nn.ModuleList([nn.ELU() for i in range(cfg.NUM_LAYERS)])
     self.cfg = cfg
 
   def forward(self, x):
-    x = self.params['in_layer'](x)
+    x = self.in_activation(self.params['in_layer'](x))
 
     for layer, ac in zip(self.params['core'], self.activations):
       x = ac(layer(x))
