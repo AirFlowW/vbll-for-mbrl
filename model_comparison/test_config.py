@@ -22,20 +22,32 @@ class cfg_test:
     
     train_vbll_kl = True
     vbll_kl_weight = [1] # 1 for normal ('dense') VBLL model - currently only running with one element in list
-    train_vbll_diagonal = True
-    train_vbll_lowrank = True
-    train_vbll_dense_precision = True
+    train_vbll_diagonal = False
+    train_vbll_lowrank = False
+    train_vbll_dense_precision = False
 
     train_vbll_e = False
 
-    train_pnn = False
+    train_pnn = True
     train_pe = False
 
     train_post_train = False
     train_vbll_sngp = False
 
     compare_times = True
-    different_dataset_sizes = [64, 128, 256]
+    different_dataset_sizes = [128]#[64, 128, 256]
+
+    # evaluate different configs
+    x_to_evaluate = "dataset_size" #cfgs / dataset_size
+    pre_train = False
+    # different_cfgs = {"HIDDEN_FEATURES":[50, 25]}
+    different_cfgs = {}
+    # different_cfgs = {"OUT_FEATURES":[1,2,3,4]}
+    evaluate_different_cfgs_vbll = False
+    evaluate_different_cfgs_pnn = False
+
+    viz_of_models = False
+                       
 
 class cfg_sub_test:
     def __init__(self, show_model, show_members):

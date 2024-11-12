@@ -1,13 +1,18 @@
 # Description: This script compares the runtime of different models on different dataset sizes.
+from collections import defaultdict
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import time
 
 from model_comparison.dataset import SimpleFnDataset, viz_data
+from model_comparison.utils.pre_train import pre_train
+from model_comparison.utils.model_run_config_class import model_run_config
+from model_comparison.inits.init_models_with_different_conf import init_pnns, init_vbllmlps
 from model_comparison.models import mlp, pnn as probabilistic_NN, vbll_mlp, vbll_sngp, probabilistic_ensemble as pe
 from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble, vbll_ensemble as VBLLE, vbll_post_train
 from model_comparison.viz import viz_model_with_mean_var as viz_w_var
+from model_comparison.viz.no_viz import no_viz
 from model_comparison.viz import viz_only_mean_model as viz_wo_var
 from model_comparison.viz import viz_ensemble as viz_ensemble
 
@@ -31,15 +36,6 @@ path_to_save_plots = os.path.join(curr_dir,'model_comparison','plots','')
 if not os.path.exists(path_to_save_plots):
     os.makedirs(path_to_save_plots)
 # ---- end init
-
-class model_run_config:
-    def __init__(self, model_name, train_cfg, models, train_fn, viz_model_fn, cfg_sub_t):
-        self.model_name = model_name
-        self.train_cfg = train_cfg
-        self.models = models
-        self.train_fn = train_fn
-        self.viz_model_fn = viz_model_fn
-        self.cfg_sub_t = cfg_sub_t
 
 if cfg_t.show_dataset:
     for dataset in datasets:
@@ -124,39 +120,65 @@ if cfg_t.train_vbll_sngp:
         [vbll_sngp.SNVResMLP(vbll_sngp.cfg_vbll_sngp(dataset_length=len(d))) for d in datasets], 
         vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_sngp, None)))
     
+if cfg_t.evaluate_different_cfgs_vbll:
+    main_cfg = vbll_mlp.cfg_vbll
+    new_cfgs = []
+    for key, item in cfg_t.different_cfgs.items():
+        for value in item:
+            new_cfg = deepcopy(main_cfg)
+            setattr(new_cfg, key, value)
+            new_cfgs.append(new_cfg)
+    models_to_train += init_vbllmlps(new_cfgs, datasets, cfg_t.different_cfgs)
+
+if cfg_t.evaluate_different_cfgs_pnn:
+    main_cfg = probabilistic_NN.cfg_pnn
+    new_cfgs = []
+    for key, item in cfg_t.different_cfgs.items():
+        for value in item:
+            new_cfg = deepcopy(main_cfg)
+            setattr(new_cfg, key, value)
+            new_cfgs.append(new_cfg)
+    models_to_train += init_pnns(new_cfgs, datasets, cfg_t.different_cfgs)
+    
 
 # main train, measure runtime and viz section
 for model_run in models_to_train:
     model_name = model_run.model_name
     train_cfg = model_run.train_cfg
     models = model_run.models
-    train_fn = model_run.train_fn
+    to_eval_fn = model_run.train_fn
     viz_model_fn = model_run.viz_model_fn
     cfg_sub_t = model_run.cfg_sub_t
 
-    print(f"Training {model_name} model")
+    if not cfg_t.viz_of_models:
+        viz_model_fn = no_viz
+
+    print(f"Evaluate {model_name} model")
     runtimes[model_name] = []
     
-    for i, dataset in enumerate(datasets):
-        dataloader = DataLoader(dataset, batch_size=train_cfg.BATCH_SIZE, shuffle=True)
+    for k in range(len(models)-len(datasets)+1): # to support different configs of a model
+        for i, dataset in enumerate(datasets):
+            dataloader = DataLoader(dataset, batch_size=train_cfg.BATCH_SIZE, shuffle=True)
 
-        model = models[i]
+            model = models[i+k]
+            if cfg_t.pre_train and not cfg_t.x_to_evaluate == 'dataset_size':
+                pre_train(dataloader, model, train_cfg(), verbose = True)
 
-        start = time.perf_counter()
-        train_fn(dataloader, model, train_cfg(), verbose = True)
-        end = time.perf_counter()
-        runtimes[model_name].append(end - start)
+            start = time.perf_counter()
+            to_eval_fn(dataloader, model, train_cfg(), verbose = True)
+            end = time.perf_counter()
+            runtimes[model_name].append(end - start)
 
-        if cfg_sub_t.show_members is not None and cfg_sub_t.show_members:
-            viz_ensemble.viz_ensemble(model, dataloader, title=model_name)
+            if cfg_sub_t.show_members is not None and cfg_sub_t.show_members:
+                viz_ensemble.viz_ensemble(model, dataloader, title=model_name)
 
-        if cfg_sub_t.show_model:
-            viz_model_fn(model, dataloader, title=model_name)
-            
-        if len(cfg_t.different_dataset_sizes) == i+1:
-            viz_model_fn(model, dataloader, title=model_name, save_path=path_to_save_plots + model_name + '.png')
-            if cfg_sub_t.show_members is not None:
-                viz_ensemble.viz_ensemble(model, dataloader,title=model_name, save_path=path_to_save_plots + model_name + '_members.png')
+            if cfg_sub_t.show_model:
+                viz_model_fn(model, dataloader, title=model_name)
+                
+            if len(cfg_t.different_dataset_sizes) == i+1:
+                viz_model_fn(model, dataloader, title=model_name, save_path=path_to_save_plots + model_name + '.png')
+                if cfg_sub_t.show_members is not None:
+                    viz_ensemble.viz_ensemble(model, dataloader,title=model_name, save_path=path_to_save_plots + model_name + '_members.png')
 
 # Compare runtimes in graph form
 if cfg_t.compare_times:
@@ -175,10 +197,14 @@ if cfg_t.compare_times:
     for i, plot_file in enumerate(saved_plots):
         row = i // plots_per_row
         col = i % plots_per_row
-        img = mpimg.imread(plot_file)  
-        axs[row, col].imshow(img)      
-        axs[row, col].axis('off')      
-        axs[row, col].set_title(saved_plots_wo_path[i])
+        try:
+            img = mpimg.imread(plot_file)  # Versuche, das Bild zu laden
+            axs[row, col].imshow(img)      
+            axs[row, col].axis('off')      
+            axs[row, col].set_title(saved_plots_wo_path[i])
+        except Exception as e:
+            print(f"Error loading {plot_file}: {e}")
+            axs[row, col].axis('off')
 
     # deactivate empty fields
     for j in range(i+1, plots_per_row * num_rows):
@@ -186,15 +212,37 @@ if cfg_t.compare_times:
         col = j % plots_per_row
         axs[row, col].axis('off')
 
+    # merge different cfgs to let them have one line in the resulting plot
+    if cfg_t.x_to_evaluate == 'cfgs':
+        merged_data = defaultdict(list)
+
+        for key, values in runtimes.items():
+            base_key = key.rsplit('--', 1)[0]
+            merged_data[base_key].extend(values)
+
+        runtimes = dict(merged_data)
+
     for key, values in runtimes.items():
         if values:
-            axs[num_rows, 0].plot(cfg_t.different_dataset_sizes, values, label=key, marker='o')
+            if cfg_t.x_to_evaluate == 'cfgs':
+                x_axis_key = ""
+                for x_label_from_cfgs in cfg_t.different_cfgs.keys():
+                    x_axis_key += x_label_from_cfgs
+                    break
+                axs[num_rows, 0].plot(cfg_t.different_cfgs[x_axis_key], values, label=key, marker='o')
+            elif cfg_t.x_to_evaluate == 'dataset_size':
+                axs[num_rows, 0].plot(cfg_t.different_dataset_sizes, values, label=key, marker='o')
+            else:
+                raise ValueError(f'Unknown x_to_evaluate: {cfg_t.x_to_evaluate}')
 
     for ax in axs[num_rows, 1:]:
         ax.remove()
         
     axs[num_rows, 0].set_position([0.125, 0.05, 0.775, 0.4])
-    axs[num_rows, 0].set_xlabel('Dataset Size')
+    x_label = ""
+    for key in cfg_t.different_cfgs.keys():
+        x_label += key
+    axs[num_rows, 0].set_xlabel(x_label)
     axs[num_rows, 0].set_ylabel('Runtime (seconds)')
     axs[num_rows, 0].set_title('Runtime Comparison Across Different Models and Dataset Sizes')
     axs[num_rows, 0].legend()
