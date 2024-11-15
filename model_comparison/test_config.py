@@ -12,6 +12,7 @@ class cfg_test:
     show_vbll_e_members = False
 
     show_vbll_sngp = False
+    show_recursive = False
     show_post_train = False
 
     show_pnn = False
@@ -32,6 +33,7 @@ class cfg_test:
     train_pe = False
 
     train_post_train = False
+    train_recursive = True
     train_vbll_sngp = False
 
     compare_times = True

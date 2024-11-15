@@ -5,11 +5,12 @@ from copy import deepcopy
 import time
 
 from model_comparison.dataset import SimpleFnDataset, viz_data
-from model_comparison.models import mlp, pnn as probabilistic_NN, vbll_mlp, vbll_sngp, probabilistic_ensemble as pe
+from model_comparison.models import mlp, pnn as probabilistic_NN, vbll_mlp, vbll_recursive, vbll_sngp, probabilistic_ensemble as pe
 from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble, vbll_ensemble as VBLLE, vbll_post_train
 from model_comparison.viz import viz_model_with_mean_var as viz_w_var
 from model_comparison.viz import viz_only_mean_model as viz_wo_var
 from model_comparison.viz import viz_ensemble as viz_ensemble
+from model_comparison.utils.general import path_to_save_plots
 
 from model_comparison.test_config import cfg_test, cfg_sub_test
 
@@ -26,8 +27,6 @@ datasets = []
 for num_samples in cfg_t.different_dataset_sizes:
     datasets.append(SimpleFnDataset(num_samples=num_samples))
 
-curr_dir = os.getcwd()
-path_to_save_plots = os.path.join(curr_dir,'model_comparison','plots','')
 if not os.path.exists(path_to_save_plots):
     os.makedirs(path_to_save_plots)
 # ---- end init
@@ -111,6 +110,12 @@ if cfg_t.train_post_train:
             [vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(dataset_length=len(dataset))) for dataset in datasets], 
             vbll_post_train.post_train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
 
+# Init train VBLL recursive model config -> parameterization has to be dense_precision due recursive update
+if cfg_t.train_recursive:
+    models_to_train.append(model_run_config('VBLL_RECURSIVE_TRAIN', vbll_recursive.recursive_train_cfg,
+            [vbll_mlp.VBLLMLP(vbll_recursive.cfg_vbll(dataset_length=len(dataset))) for dataset in datasets], 
+            vbll_recursive.recursive_train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_recursive, None)))
+
 
 # Init train VBLL Ensemble model config
 if cfg_t.train_vbll_e:
@@ -143,9 +148,12 @@ for model_run in models_to_train:
         model = models[i]
 
         start = time.perf_counter()
-        train_fn(dataloader, model, train_cfg(), verbose = True)
+        train_time = train_fn(dataloader, model, train_cfg(), verbose = True)
         end = time.perf_counter()
-        runtimes[model_name].append(end - start)
+        if train_time is not None:
+            runtimes[model_name].append(train_time)
+        else:
+            runtimes[model_name].append(end - start)
 
         if cfg_sub_t.show_members is not None and cfg_sub_t.show_members:
             viz_ensemble.viz_ensemble(model, dataloader, title=model_name)
@@ -164,6 +172,8 @@ if cfg_t.compare_times:
     for saved_plot in saved_plots_wo_path:
         if saved_plot[-1] == 'E':
             saved_plots_wo_path.append(saved_plot + '_members')
+        elif saved_plot == 'VBLL_RECURSIVE_TRAIN':
+            saved_plots_wo_path.append("Recursive-Fulltrain")
     saved_plots = [path_to_save_plots + plot + '.png' for plot in saved_plots_wo_path]
 
     n = len(saved_plots)  

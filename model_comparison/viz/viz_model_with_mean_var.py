@@ -1,10 +1,11 @@
+from typing import Tuple
 import torch
 import matplotlib.pyplot as plt
 
 """
 model output either (mean, variance) or VBLLReturn object
 """
-def viz_model(model, dataloader, stdevs = 1., title = None, save_path=None):
+def viz_model(model, dataloader, stdevs = 1., title = None, save_path=None, dataset: Tuple[torch.tensor,torch.tensor] = None):
   """Visualize model predictions, including predictive uncertainty."""
   model.eval()
   X = torch.linspace(-1.5, 1.5, 1000)[..., None]
@@ -26,7 +27,11 @@ def viz_model(model, dataloader, stdevs = 1., title = None, save_path=None):
   plt.plot(Xp, Y_mean)
   plt.fill_between(Xp, Y_mean - stdevs * Y_stdev, Y_mean + stdevs * Y_stdev, alpha=0.2, color='b')
   plt.fill_between(Xp, Y_mean - 2 * stdevs * Y_stdev, Y_mean + 2 * stdevs * Y_stdev, alpha=0.2, color='b')
-  plt.scatter(dataloader.dataset.X, dataloader.dataset.Y, color='k')
+  if dataset is not None:
+    (X, Y) = dataset
+  else:
+    (X, Y) = dataloader.dataset.X, dataloader.dataset.Y
+  plt.scatter(X, Y, color='k')
   plt.axis([-1.5, 1.5, -2, 2])
   if not title == None:
     plt.title(title)
