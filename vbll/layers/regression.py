@@ -125,7 +125,7 @@ class Regression(nn.Module):
 
     def _get_train_loss_fn(self, x):
 
-        def loss_fn(y):
+        def loss_fn(y, recursive_update = False):
             # construct predictive density N(W @ phi, Sigma)
             W = self.W()
             noise = self.noise()
@@ -138,6 +138,16 @@ class Regression(nn.Module):
             wishart_term = (self.dof * noise.logdet_precision - 0.5 * self.wishart_scale * noise.trace_precision)
             total_elbo = torch.mean(pred_likelihood - trace_term)
             total_elbo += self.regularization_weight * (wishart_term - kl_term)
+            if recursive_update:
+                assert(self.W_dist == DenseNormalPrec)
+                with torch.no_grad():
+                    noise_cov = torch.exp(self.noise_logdiag) # out_dim * 1
+                    chol, new_mean = self.W().recursive_update(x, y, noise_cov)
+
+                    # update in place
+                    self.W_logdiag += torch.log(torch.diagonal(chol, dim1 = -2, dim2=-1)) - self.W_logdiag
+                    self.W_offdiag += torch.tril(chol, diagonal = -1) - self.W_offdiag
+                    self.W_mean += new_mean - self.W_mean
             return -total_elbo
 
         return loss_fn
