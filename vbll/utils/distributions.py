@@ -194,7 +194,7 @@ class DenseNormalPrec(torch.distributions.MultivariateNormal):
         return Normal(self.loc @ inp, torch.sqrt(torch.clip(new_cov, min = 1e-12)))
 
     def squeeze(self, idx):
-        return DenseNormalPrecision(self.loc.squeeze(idx), self.tril.squeeze(idx))
+        return DenseNormalPrec(self.loc.squeeze(idx), self.tril.squeeze(idx))
 
     def recursive_update(self, X, y, noise_cov):
         noise_cov = noise_cov.unsqueeze(-1)
