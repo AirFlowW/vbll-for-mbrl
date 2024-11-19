@@ -7,6 +7,7 @@ import time
 from model_comparison.dataset import SimpleFnDataset, viz_data
 from model_comparison.models import mlp, pnn as probabilistic_NN, vbll_mlp, vbll_recursive, vbll_sngp, probabilistic_ensemble as pe
 from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble, vbll_ensemble as VBLLE, vbll_post_train
+from model_comparison.utils.seed import set_seed
 from model_comparison.viz import viz_model_with_mean_var as viz_w_var
 from model_comparison.viz import viz_only_mean_model as viz_wo_var
 from model_comparison.viz import viz_ensemble as viz_ensemble
@@ -22,6 +23,7 @@ import math
 cfg_t = cfg_test()
 runtimes = {}
 models_to_train = []
+set_seed(42)
 
 datasets = []
 for num_samples in cfg_t.different_dataset_sizes:
