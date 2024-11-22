@@ -27,6 +27,14 @@ def zth_greatest_value(tensor, z):
     sorted_tensor, _ = torch.sort(tensor, descending=False, dim=0)
     return sorted_tensor[-z].item()
 
+def get_val_loss_of_dataloader(dataloader, model):
+    loss_sum = 0
+    for train_step, (x, y) in enumerate(dataloader):
+        out = model(x)
+        loss = out.val_loss_fn(y)
+        loss_sum += loss.item()
+    return loss_sum
+
 # main function
 def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True, point_for_recursive_train: Tuple[float,float] = None):
     """Training a VBLL model on particular data and then use recursive updates to train on more data.
@@ -56,8 +64,8 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
         threshold = 0
     else:
         threshold = 50000
-    mask = mask_to_seperate_datasets(Y_all_data, threshold)
-    # mask = mask_seperate_X_zth_greatest_values(X_all_data, 9)
+    # mask = mask_to_seperate_datasets(Y_all_data, threshold)
+    mask = mask_seperate_X_zth_greatest_values(X_all_data, 3)
     opposite_mask = ~mask
     
     X_for_full_train = X_all_data[mask.squeeze()]
@@ -73,11 +81,15 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     dataset_for_full_train = TensorDataset(X_for_full_train, Y_for_full_train)
     dataset_for_recursive_train = TensorDataset(X_for_recursive_train, Y_for_recursive_train)
     
+    fulltrain_dataset_size = len(torch.squeeze(X_for_full_train))
     dataloader_for_full_train = DataLoader(dataset_for_full_train,
                                         batch_size=recursive_train_cfg.BATCH_SIZE, shuffle=True)
+    
+    recursive_dataset_size = len(torch.squeeze(X_for_recursive_train))
     dataloader_for_recursive_train = DataLoader(dataset_for_recursive_train,
-                                        batch_size=recursive_train_cfg.RECURSIVE_TRAIN_BATCH_SIZE, shuffle=True)
-
+                                        batch_size=recursive_dataset_size, shuffle=True)
+    
+    model.params['out_layer'].regularization_weight = 1/fulltrain_dataset_size
 
     # start counting time
     start = time.perf_counter()
@@ -91,18 +103,41 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     viz_time = time.perf_counter() - start_viz_timer
 
     # train recursive vbll model
-    with torch.no_grad():
-        for (x,y) in dataloader_for_recursive_train:
-            out = model(x)
-            out.train_loss_fn(y, recursive_update=True)
+    recursive_train = True
+    if not recursive_train:
+        recursive_train_cfg.NUM_EPOCHS = 10
+        vbll_mlp.train_vbll(dataloader_for_recursive_train, model, recursive_train_cfg, verbose = verbose)
+    else:
+        model.eval()
+        with torch.no_grad():
+            if recursive_train_cfg.RECURSIVE_NUM_EPOCHS is not None:
+                for epoch in range(recursive_train_cfg.RECURSIVE_NUM_EPOCHS):
+                    for (x,y) in dataloader_for_recursive_train:
+                        out = model(x)
+                        out.train_loss_fn(y, recursive_update=True)
+            else:
+                recursive_iterations = 0
+                last_loss_sum = get_val_loss_of_dataloader(dataloader, model)
+
+                current_loss_sum = last_loss_sum
+                while last_loss_sum >= current_loss_sum:
+                    recursive_iterations += 1
+                    last_loss_sum = current_loss_sum
+                    for (x,y) in dataloader_for_recursive_train:
+                        out = model(x)
+                        out.train_loss_fn(y, recursive_update=True, debug=True)
+                    current_loss_sum = get_val_loss_of_dataloader(dataloader, model)
+                if verbose:
+                    print(f"Recursive iterations: {recursive_iterations}")
+
 
     end = time.perf_counter()
     return end - start - viz_time
 
 class recursive_train_cfg:
   NUM_EPOCHS = int(1000)
+  RECURSIVE_NUM_EPOCHS = 8
   BATCH_SIZE = 32
-  RECURSIVE_TRAIN_BATCH_SIZE = 1
   LR = 1e-3
   WD = 1e-4
   OPT = torch.optim.AdamW
