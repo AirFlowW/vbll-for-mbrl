@@ -86,6 +86,10 @@ class Regression(nn.Module):
         # last layer distribution
         self.W_dist = get_parameterization(parameterization)
         self.W_mean = nn.Parameter(torch.randn(out_features, in_features))
+
+        # W and noise cache
+        self.W_cache = None
+        self.noise_cache = None
         
         if parameterization == 'diagonal':
             self.W_logdiag = nn.Parameter(torch.randn(out_features, in_features) - 0.5 * np.log(in_features))
@@ -100,6 +104,11 @@ class Regression(nn.Module):
             self.W_offdiag = nn.Parameter(torch.randn(out_features, in_features, cov_rank)/in_features)
 
     def W(self):
+        if self.training:
+            self.W_cache = None
+        if not self.training and self.W_cache is not None:
+            return self.W_cache
+        
         cov_diag = torch.exp(self.W_logdiag)
         if self.W_dist == Normal:
             cov = self.W_dist(self.W_mean, cov_diag)
@@ -108,11 +117,24 @@ class Regression(nn.Module):
             cov = self.W_dist(self.W_mean, tril)
         elif self.W_dist == LowRankNormal:
             cov = self.W_dist(self.W_mean, self.W_offdiag, cov_diag)
-
+        
+        if not self.training:
+            self.W_cache = cov
+        
         return cov
 
     def noise(self):
-        return Normal(self.noise_mean, torch.exp(self.noise_logdiag))
+        if self.training:
+            self.noise_cache = None
+        if not self.training and self.noise_cache is not None:
+            return self.noise_cache
+        
+        normal = Normal(self.noise_mean, torch.exp(self.noise_logdiag))
+
+        if not self.training:
+            self.noise_cache = normal
+        
+        return normal
 
     def forward(self, x):
         out = VBLLReturn(self.predictive(x),
