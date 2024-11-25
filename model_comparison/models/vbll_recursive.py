@@ -29,10 +29,14 @@ def zth_greatest_value(tensor, z):
 
 def get_val_loss_of_dataloader(dataloader, model):
     loss_sum = 0
+    is_training = model.training
+    model.eval()
     for train_step, (x, y) in enumerate(dataloader):
         out = model(x)
         loss = out.val_loss_fn(y)
         loss_sum += loss.item()
+    if is_training:
+        model.train()
     return loss_sum
 
 # main function
@@ -105,10 +109,10 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     # train recursive vbll model
     recursive_train = True
     if not recursive_train:
-        recursive_train_cfg.NUM_EPOCHS = 10
+        recursive_train_cfg.NUM_EPOCHS = recursive_train_cfg.RECURSIVE_NUM_EPOCHS
         vbll_mlp.train_vbll(dataloader_for_recursive_train, model, recursive_train_cfg, verbose = verbose)
     else:
-        model.eval()
+        model.train()
         with torch.no_grad():
             if recursive_train_cfg.RECURSIVE_NUM_EPOCHS is not None:
                 for epoch in range(recursive_train_cfg.RECURSIVE_NUM_EPOCHS):
@@ -125,7 +129,7 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
                     last_loss_sum = current_loss_sum
                     for (x,y) in dataloader_for_recursive_train:
                         out = model(x)
-                        out.train_loss_fn(y, recursive_update=True, debug=True)
+                        out.train_loss_fn(y, recursive_update=True)
                     current_loss_sum = get_val_loss_of_dataloader(dataloader, model)
                 if verbose:
                     print(f"Recursive iterations: {recursive_iterations}")
