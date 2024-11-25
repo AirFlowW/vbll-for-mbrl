@@ -167,9 +167,9 @@ class Regression(nn.Module):
                     chol, new_mean = self.W().recursive_update(x, y, noise_cov)
 
                     # update in place
-                    self.W_logdiag += torch.log(torch.diagonal(chol, dim1 = -2, dim2=-1)) - self.W_logdiag
-                    self.W_offdiag += torch.tril(chol, diagonal = -1) - self.W_offdiag
-                    self.W_mean += new_mean - self.W_mean
+                    self.W_logdiag = torch.log(torch.diagonal(chol, dim1 = -2, dim2=-1))
+                    self.W_offdiag = torch.tril(chol, diagonal = -1)
+                    self.W_mean = new_mean
             return -total_elbo
 
         return loss_fn
