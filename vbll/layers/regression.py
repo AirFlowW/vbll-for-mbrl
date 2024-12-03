@@ -58,6 +58,8 @@ class Regression(nn.Module):
         Scale of prior covariance matrix
     wishart_scale : float
         Scale of Wishart prior on noise covariance
+    init_noise_logdiag : str
+        Initialization of log diagonal of covariance matrix. Currently supports {'random', 'zeros'}
     dof : float
         Degrees of freedom of Wishart prior on noise covariance
     """
@@ -69,6 +71,7 @@ class Regression(nn.Module):
                  prior_scale=1.,
                  wishart_scale=1e-2,
                  cov_rank=None,
+                 init_noise_logdiag='random',
                  dof=1.):
         super(Regression, self).__init__()
 
@@ -81,7 +84,10 @@ class Regression(nn.Module):
 
         # noise distribution
         self.noise_mean = nn.Parameter(torch.zeros(out_features), requires_grad = False)
-        self.noise_logdiag = nn.Parameter(torch.randn(out_features) * (np.log(wishart_scale)))
+        if init_noise_logdiag == 'zeros':
+            self.noise_logdiag = nn.Parameter(torch.zeros(out_features))
+        else:
+            self.noise_logdiag = nn.Parameter(torch.randn(out_features) * (np.log(wishart_scale)))
 
         # last layer distribution
         self.W_dist = get_parameterization(parameterization)
