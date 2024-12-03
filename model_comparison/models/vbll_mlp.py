@@ -18,7 +18,8 @@ class VBLLMLP(nn.Module):
         'in_layer': nn.Linear(cfg.IN_FEATURES, cfg.HIDDEN_FEATURES),
         'core': nn.ModuleList([nn.Linear(cfg.HIDDEN_FEATURES, cfg.HIDDEN_FEATURES) for i in range(cfg.NUM_LAYERS)]),
         'out_layer': vbll.Regression(cfg.HIDDEN_FEATURES, cfg.OUT_FEATURES, cfg.REG_WEIGHT, parameterization=cfg.PARAM, 
-                                     cov_rank=cfg.COV_RANK, prior_scale = cfg.PRIOR_SCALE, wishart_scale = cfg.WISHART_SCALE)
+                                     cov_rank=cfg.COV_RANK, prior_scale = cfg.PRIOR_SCALE, wishart_scale = cfg.WISHART_SCALE,
+                                     init_noise_logdiag=cfg.INIT_NOISE_LOG_DIAG)
         })
     self.in_activation = nn.ELU()
     self.activations = nn.ModuleList([nn.ELU() for i in range(cfg.NUM_LAYERS)])
@@ -47,6 +48,7 @@ def train_vbll(dataloader, model, train_cfg, verbose = True):
                             lr=train_cfg.LR,
                             weight_decay=train_cfg.WD)
 
+  running_losses = []
   for epoch in range(train_cfg.NUM_EPOCHS + 1):
     model.train()
     running_loss = []
@@ -61,8 +63,10 @@ def train_vbll(dataloader, model, train_cfg, verbose = True):
       optimizer.step()
       running_loss.append(loss.item())
 
-    if epoch % train_cfg.VAL_FREQ == 0 and verbose:
-      print('Epoch: {:4d},  loss: {:10.4f}'.format(epoch, np.mean(running_loss)))
+    if epoch % train_cfg.VAL_FREQ == 0:
+      if verbose:
+        print('Epoch: {:4d},  loss: {:10.4f}'.format(epoch, np.mean(running_loss)))
+      running_losses.append(running_loss)
       running_loss = []
 
 class train_cfg_vbll:
@@ -75,10 +79,12 @@ class train_cfg_vbll:
   VAL_FREQ = 100
 
 class cfg_vbll:
-    def __init__(self, dataset_length, parameterization = 'dense', cov_rank = None):
+    def __init__(self, dataset_length, parameterization = 'dense', cov_rank = None,
+                 init_noise_log_diag = 'random'):
         self.REG_WEIGHT = 1./dataset_length
         self.PARAM = parameterization
         self.COV_RANK = cov_rank
+        self.INIT_NOISE_LOG_DIAG = init_noise_log_diag
     IN_FEATURES = 1
     HIDDEN_FEATURES = 64
     OUT_FEATURES = 1
