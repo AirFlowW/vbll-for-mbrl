@@ -187,7 +187,32 @@ class Regression(nn.Module):
             return -logprob.mean(0) # mean over batch dim
 
         return loss_fn
+    
+    def create_thompson_heads(self, n: int=1):
+        """Creates n Thompson samples from the posterior distribution.
 
+        Args:
+            n: int, optional (default=1) number of samples to draw from the posterior distribution.
+        
+        Returns:
+            heads: List of n tensors of shape (out_features, in_features) representing the weights of the extracted layer"""
+        is_training = self.training
+        self.eval()
+        heads = []
+        for _ in range(n):
+            W = self.W()
+            heads.append(W.sample())
+        if is_training:
+            self.train()
+        return heads
+    
+    def create_mean_thompson_head(self):
+        """
+        Create one Thompson sample from the posterior distribution. Namely it gives back the mean of the approx of the posterior distribution.
+
+        :return: tensor of shape (out_features, in_features) representing the weight of the extracted layer
+        """
+        return [self.W_mean]
 
 
 class tRegression(nn.Module):
