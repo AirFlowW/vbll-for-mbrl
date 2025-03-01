@@ -1,10 +1,11 @@
-import time
 from typing import Tuple
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from model_comparison.utils.general import path_to_save_plots
 
 from model_comparison.models import vbll_mlp
+from model_comparison.viz import viz_ensemble_recursive, viz_pred
 from model_comparison.viz.viz_model_with_mean_var import viz_model
 
 def mask_to_seperate_datasets(data, threshold = 0):
@@ -40,7 +41,7 @@ def get_val_loss_of_dataloader(dataloader, model):
     return loss_sum
 
 # main function
-def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True, point_for_recursive_train: Tuple[float,float] = None):
+def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True, point_for_recursive_train: Tuple[float,float] = None, recursive_train = True, dataloader_for_full_train = None, dataloader_for_recursive_train = None):
     """Training a VBLL model on particular data and then use recursive updates to train on more data.
     Possible use cases:
     - train on a subset of data and then train recursively on the rest of the data: use masks to choose which data
@@ -68,49 +69,77 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
         threshold = 0
     else:
         threshold = 50000
+
+    extra_data_set = True
+    recursive_update_samples = 40
+    if extra_data_set:
+        def get_data():
+            y_start = -0.25
+            y_end = 0.55
+            x_start = 0.675
+            x_end = 0.845
+            def y_fn(x):
+                b = y_start
+                m = (y_end - y_start)/(x_end - x_start)
+                return m*(x-x_start)+b
+            x = []
+            y = []
+            samples = np.linspace(x_start, x_end, recursive_update_samples)
+            y_samples = np.linspace(y_start, y_end, recursive_update_samples)
+            for i, k in zip(samples,y_samples):
+                x.append(i)
+                y.append(k)
+            noise = np.random.normal(loc=0.0, scale=0.05, size=recursive_update_samples)
+            noise = torch.tensor(noise).float().unsqueeze(dim=1)
+            return torch.tensor(x).float().unsqueeze(dim=1), torch.tensor(y).float().unsqueeze(dim=1) + noise
+
+        X, Y = get_data()
+        X_for_recursive_train = X
+        Y_for_recursive_train = Y
+        X_for_full_train = X_all_data
+        Y_for_full_train = Y_all_data
+
     # mask = mask_to_seperate_datasets(Y_all_data, threshold)
-    mask = mask_seperate_X_zth_greatest_values(X_all_data, 3)
-    opposite_mask = ~mask
-    
-    X_for_full_train = X_all_data[mask.squeeze()]
-    Y_for_full_train = Y_all_data[mask.squeeze()]
-    if point_for_recursive_train is None:
-        X_for_recursive_train = X_all_data[opposite_mask.squeeze()]
-        Y_for_recursive_train = Y_all_data[opposite_mask.squeeze()]
     else:
-        X_for_recursive_train = torch.tensor([[point_for_recursive_train[0]]])
-        Y_for_recursive_train = torch.tensor([[point_for_recursive_train[1]]])
+        zth_greatest = 15 # 20 for gradient based comparison
+        mask = mask_seperate_X_zth_greatest_values(X_all_data, zth_greatest)
+        opposite_mask = ~mask
+
+        X_for_full_train = X_all_data[mask.squeeze()]
+        Y_for_full_train = Y_all_data[mask.squeeze()]
+        if point_for_recursive_train is None:
+            X_for_recursive_train = X_all_data[opposite_mask.squeeze()]
+            Y_for_recursive_train = Y_all_data[opposite_mask.squeeze()]
+        else:
+            X_for_recursive_train = torch.tensor([[point_for_recursive_train[0]]])
+            Y_for_recursive_train = torch.tensor([[point_for_recursive_train[1]]])
 
     
     dataset_for_full_train = TensorDataset(X_for_full_train, Y_for_full_train)
     dataset_for_recursive_train = TensorDataset(X_for_recursive_train, Y_for_recursive_train)
     
     fulltrain_dataset_size = len(torch.squeeze(X_for_full_train))
-    dataloader_for_full_train = DataLoader(dataset_for_full_train,
+    if dataloader_for_full_train is None:
+        dataloader_for_full_train = DataLoader(dataset_for_full_train,
                                         batch_size=recursive_train_cfg.BATCH_SIZE, shuffle=True)
     
     recursive_dataset_size = len(torch.squeeze(X_for_recursive_train))
-    dataloader_for_recursive_train = DataLoader(dataset_for_recursive_train,
+    if dataloader_for_recursive_train is None:
+        dataloader_for_recursive_train = DataLoader(dataset_for_recursive_train,
                                         batch_size=recursive_dataset_size, shuffle=True)
     
     model.params['out_layer'].regularization_weight = 1/fulltrain_dataset_size
 
-    # start counting time
-    start = time.perf_counter()
     # train full vbll model
     vbll_mlp.train_vbll(dataloader_for_full_train, model, recursive_train_cfg, verbose = verbose)
 
-    # viz what full train did
-    start_viz_timer = time.perf_counter()
-    viz_model(model, dataloader_for_full_train, title="Recursive-Fulltrain", dataset=(X_for_full_train, Y_for_full_train),
-              save_path=path_to_save_plots + "Recursive-Fulltrain" + '.png')
-    viz_time = time.perf_counter() - start_viz_timer
-
+    recursive_models_pred = [viz_pred.viz_pred(model)]
+    
     # train recursive vbll model
-    recursive_train = True
     if not recursive_train:
         recursive_train_cfg.NUM_EPOCHS = recursive_train_cfg.RECURSIVE_NUM_EPOCHS
         vbll_mlp.train_vbll(dataloader_for_recursive_train, model, recursive_train_cfg, verbose = verbose)
+        recursive_models_pred += [viz_pred.viz_pred(model)]
     else:
         model.train()
         with torch.no_grad():
@@ -119,6 +148,7 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
                     for (x,y) in dataloader_for_recursive_train:
                         out = model(x)
                         out.train_loss_fn(y, recursive_update=True)
+                    recursive_models_pred += [viz_pred.viz_pred(model)] 
             else:
                 recursive_iterations = 0
                 last_loss_sum = get_val_loss_of_dataloader(dataloader, model)
@@ -131,16 +161,15 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
                         out = model(x)
                         out.train_loss_fn(y, recursive_update=True)
                     current_loss_sum = get_val_loss_of_dataloader(dataloader, model)
+                    recursive_models_pred += [viz_pred.viz_pred(model)]
                 if verbose:
                     print(f"Recursive iterations: {recursive_iterations}")
-
-
-    end = time.perf_counter()
-    return end - start - viz_time
+    
+    return dataloader_for_recursive_train, dataloader_for_full_train, recursive_models_pred
 
 class recursive_train_cfg:
   NUM_EPOCHS = int(1000)
-  RECURSIVE_NUM_EPOCHS = 8
+  RECURSIVE_NUM_EPOCHS = 1
   BATCH_SIZE = 32
   LR = 1e-3
   WD = 1e-4
@@ -149,8 +178,9 @@ class recursive_train_cfg:
   VAL_FREQ = 100
 
 class cfg_vbll:
-    def __init__(self, dataset_length):
+    def __init__(self, dataset_length, init_noise_log_diag = "random"):
         self.REG_WEIGHT = 1./dataset_length
+        self.INIT_NOISE_LOG_DIAG = init_noise_log_diag
     IN_FEATURES = 1
     HIDDEN_FEATURES = 64
     OUT_FEATURES = 1
