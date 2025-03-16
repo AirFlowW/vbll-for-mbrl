@@ -59,8 +59,9 @@ if cfg_t.train_pnn:
         probabilistic_NN.train, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_pnn, None)))
 
 # Init train Probabilistic Ensemble model config
+PE_string='Probabilistic Ensemble'
 if cfg_t.train_pe:
-    models_to_train.append(model_run_config('PE', pe.train_cfg_member,
+    models_to_train.append(model_run_config(PE_string, pe.train_cfg_member,
         [ensemble.GaussianEnsemble(pe.cfg_member,pe.cfg_ensemble,probabilistic_NN.ProbabilisticNN, probabilistic_NN.train) for d in datasets], 
         ensemble.train, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_pe, cfg_t.show_pe_members)))
     
@@ -166,14 +167,14 @@ for model_run in models_to_train:
         if len(cfg_t.different_dataset_sizes) == i+1:
             viz_model_fn(model, dataloader, title=model_name, save_path=path_to_save_plots + model_name + '.png')
             if cfg_sub_t.show_members is not None:
-                viz_ensemble.viz_ensemble(model, dataloader,title=model_name, save_path=path_to_save_plots + model_name + '_members.png')
+                viz_ensemble.viz_ensemble(model, dataloader,title=model_name + ' members', save_path=path_to_save_plots + model_name + ' members.png')
 
 # Compare runtimes in graph form
 if cfg_t.compare_times:
     saved_plots_wo_path = [key for key in runtimes.keys()]
     for saved_plot in saved_plots_wo_path:
-        if saved_plot[-1] == 'E':
-            saved_plots_wo_path.append(saved_plot + '_members')
+        if saved_plot[-1] == 'E' or saved_plot == PE_string:
+            saved_plots_wo_path.append(saved_plot + ' members')
         elif saved_plot == 'VBLL_RECURSIVE_TRAIN':
             saved_plots_wo_path.append("Recursive-Fulltrain")
     saved_plots = [path_to_save_plots + plot + '.png' for plot in saved_plots_wo_path]
@@ -215,3 +216,13 @@ if cfg_t.compare_times:
     plt.tight_layout()
     plt.savefig(path_to_save_plots + 'overall.png')
     plt.show()
+
+    for key, values in runtimes.items():
+            if values:
+                plt.plot(cfg_t.different_dataset_sizes, values, label=key, marker='o')
+    plt.xlabel('Dataset Size')
+    plt.ylabel('Runtime (seconds)')
+    plt.title('Runtime Comparison Across Different Models and Dataset Sizes')
+    plt.legend()
+    save_path = path_to_save_plots +  'Runtime-Comparison.png'
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')

@@ -14,7 +14,7 @@ def viz_model(model, dataloader, title=None, save_path=None):
     plt.title(title)
 
   if save_path is not None:
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
   else:
     plt.show()

@@ -9,7 +9,7 @@ class MLP(nn.Module):
 
   cfg: a config containing model parameters.
   """
-  def __init__(self, cfg):
+  def __init__(self, cfg, in_layer=None, core=None, out_layer=None):
     super(MLP, self).__init__()
 
     # define model layers
@@ -18,6 +18,12 @@ class MLP(nn.Module):
         'core': nn.ModuleList([nn.Linear(cfg.HIDDEN_FEATURES, cfg.HIDDEN_FEATURES) for i in range(cfg.NUM_LAYERS)]),
         'out_layer': nn.Linear(cfg.HIDDEN_FEATURES, cfg.OUT_FEATURES)
         })
+    if in_layer is not None:
+      self.params['in_layer'] = in_layer
+    if core is not None:
+      self.params['core'] = core
+    if out_layer is not None:
+      self.params['out_layer'] = out_layer
 
     # ELU activations are an arbitrary choice
     self.activation = nn.ELU()

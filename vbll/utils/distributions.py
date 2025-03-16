@@ -136,6 +136,13 @@ class DenseNormal(torch.distributions.MultivariateNormal):
         assert inp.shape[-1] == 1
         new_cov = self.covariance_weighted_inner_prod(inp.unsqueeze(-3), reduce_dim = False)
         return Normal(self.loc @ inp, torch.sqrt(torch.clip(new_cov, min = 1e-12)))
+    
+    def __add__(self, inp):
+        if isinstance(inp, Normal):
+            new_cov =  self.covariance + inp.var
+            return Normal(self.loc + inp.mean, torch.sqrt(torch.clip(new_cov, min = 1e-12)))
+        else:
+            raise NotImplementedError('Distribution addition only implemented for DenseNormal + Normal')
 
     def squeeze(self, idx):
         return DenseNormal(self.loc.squeeze(idx), self.scale_tril.squeeze(idx))

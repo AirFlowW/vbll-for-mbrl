@@ -2,6 +2,8 @@ from typing import Tuple
 import torch
 import matplotlib.pyplot as plt
 
+from vbll.layers.regression import VBLLReturn
+
 """
 model output either (mean, variance) or VBLLReturn object
 """
@@ -14,12 +16,16 @@ def viz_model(model, dataloader, stdevs = 1., title = None, save_path=None, data
   pred = model(X)
   if isinstance(pred, tuple):
     Y_mean, Y_stdev = pred
-  else:
+  elif isinstance(pred, VBLLReturn):
     try:
         Y_mean = pred.predictive.mean
         Y_stdev = pred.predictive.covariance
     except:
       raise ValueError("model output must be either (mean, variance) or VBLLReturn object")
+  elif isinstance(pred, torch.Tensor):
+    Y_mean = pred
+    Y_stdev = torch.zeros_like(pred)
+
   
   Y_mean = Y_mean.detach().numpy().squeeze()
   Y_stdev = torch.sqrt(Y_stdev.squeeze()).detach().numpy()
@@ -37,7 +43,9 @@ def viz_model(model, dataloader, stdevs = 1., title = None, save_path=None, data
     plt.title(title)
 
   if save_path is not None:
-    plt.savefig(save_path)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
   else:
-    plt.show()
+    plt.show(block=True)
+
+  return Y_mean, Y_stdev, Xp

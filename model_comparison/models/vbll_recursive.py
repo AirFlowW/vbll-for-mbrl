@@ -1,3 +1,4 @@
+import random
 from typing import Tuple
 import numpy as np
 import torch
@@ -71,13 +72,13 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
         threshold = 50000
 
     extra_data_set = True
-    recursive_update_samples = 40
+    recursive_update_samples = 10 # 40
     if extra_data_set:
         def get_data():
             y_start = -0.25
-            y_end = 0.55
+            y_end = -0.5 #-1
             x_start = 0.675
-            x_end = 0.845
+            x_end = 1.2 #0.845
             def y_fn(x):
                 b = y_start
                 m = (y_end - y_start)/(x_end - x_start)
@@ -94,8 +95,18 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
             return torch.tensor(x).float().unsqueeze(dim=1), torch.tensor(y).float().unsqueeze(dim=1) + noise
 
         X, Y = get_data()
-        X_for_recursive_train = X
-        Y_for_recursive_train = Y
+        number_old_data = 10 # 10
+        with_old_data = False
+        random_indices = random.sample(range(X_all_data.shape[0]), number_old_data)
+        random_indices = random.sample(range(X_all_data.shape[0]), number_old_data)
+        X_old_for_recursive_train = X_all_data[random_indices]
+        Y_old_for_recursive_train = Y_all_data[random_indices]
+        if with_old_data:
+            X_for_recursive_train = torch.cat((X, X_old_for_recursive_train), dim=0)
+            Y_for_recursive_train = torch.cat((Y, Y_old_for_recursive_train), dim=0)
+        else:
+            X_for_recursive_train = X
+            Y_for_recursive_train = Y
         X_for_full_train = X_all_data
         Y_for_full_train = Y_all_data
 
@@ -117,6 +128,9 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     
     dataset_for_full_train = TensorDataset(X_for_full_train, Y_for_full_train)
     dataset_for_recursive_train = TensorDataset(X_for_recursive_train, Y_for_recursive_train)
+
+    dataset_wo_old_for_recursive_train = TensorDataset(X, Y)
+    dataset_old_for_recursive_train = TensorDataset(X_old_for_recursive_train, Y_old_for_recursive_train)
     
     fulltrain_dataset_size = len(torch.squeeze(X_for_full_train))
     if dataloader_for_full_train is None:
@@ -126,6 +140,11 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     recursive_dataset_size = len(torch.squeeze(X_for_recursive_train))
     if dataloader_for_recursive_train is None:
         dataloader_for_recursive_train = DataLoader(dataset_for_recursive_train,
+                                        batch_size=recursive_dataset_size, shuffle=True)
+        
+    dataloader_wo_old_for_recursive_train = DataLoader(dataset_wo_old_for_recursive_train,
+                                        batch_size=recursive_dataset_size, shuffle=True)
+    dataloader_old_for_recursive_train = DataLoader(dataset_old_for_recursive_train,
                                         batch_size=recursive_dataset_size, shuffle=True)
     
     model.params['out_layer'].regularization_weight = 1/fulltrain_dataset_size
@@ -165,7 +184,7 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
                 if verbose:
                     print(f"Recursive iterations: {recursive_iterations}")
     
-    return dataloader_for_recursive_train, dataloader_for_full_train, recursive_models_pred
+    return dataloader_wo_old_for_recursive_train, dataloader_old_for_recursive_train, dataloader_for_full_train, recursive_models_pred
 
 class recursive_train_cfg:
   NUM_EPOCHS = int(1000)

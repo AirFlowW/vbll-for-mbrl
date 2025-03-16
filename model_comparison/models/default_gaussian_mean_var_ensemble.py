@@ -1,15 +1,22 @@
 import torch
 import torch.nn as nn
 
+from vbll.layers.regression import VBLLReturn
+
 class GaussianEnsemble(nn.Module):
 
-  def __init__(self, cfg_member, cfg_ensemble, model_class, train_member_fn):
+  def __init__(self, cfg_member, cfg_ensemble, model_class, train_member_fn, members=None):
     super(GaussianEnsemble, self).__init__()
 
-    self.params = nn.ModuleDict({
-        'members': nn.ModuleList([model_class(cfg_member) 
-                                  for i in range(cfg_ensemble.NUM_MEMBERS)]),
-        })
+    if members:
+      self.params = nn.ModuleDict({
+          'members': members
+          })
+    else:
+      self.params = nn.ModuleDict({
+          'members': nn.ModuleList([model_class(cfg_member) 
+                                    for i in range(cfg_ensemble.NUM_MEMBERS)]),
+          })
     self.cfg_ensemble = cfg_ensemble
     self.train_member_fn = train_member_fn
 
@@ -18,9 +25,14 @@ class GaussianEnsemble(nn.Module):
     if predictions and isinstance(predictions[0], tuple):
       means = torch.stack([pred[0] for pred in predictions])
       variances = torch.stack(([pred[1] for pred in predictions]))
-    else:
+    elif predictions and isinstance(predictions[0], VBLLReturn):
       means = torch.stack([pred.predictive.mean.squeeze() for pred in predictions])
       variances = torch.stack([pred.predictive.covariance.squeeze() for pred in predictions])
+    elif predictions and isinstance(predictions[0], torch.Tensor):
+      means = torch.stack([pred for pred in predictions])
+      variances = torch.zeros_like(means)
+    else:
+      raise ValueError("model output must be either (mean, variance), mean or VBLLReturn object")
 
     
     ensemble_mean = torch.mean(means, dim=0)

@@ -49,9 +49,9 @@ def train_vbll(dataloader, model, train_cfg, verbose = True):
                             weight_decay=train_cfg.WD)
 
   running_losses = []
-  for epoch in range(train_cfg.NUM_EPOCHS + 1):
+  for epoch in range(train_cfg.NUM_EPOCHS):
     model.train()
-    running_loss = []
+    running_loss = 0
 
     for train_step, (x, y) in enumerate(dataloader):
       optimizer.zero_grad()
@@ -61,13 +61,15 @@ def train_vbll(dataloader, model, train_cfg, verbose = True):
       loss.backward()
       torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.CLIP_VAL)
       optimizer.step()
-      running_loss.append(loss.item())
+      running_loss += loss.item()
 
-    if epoch % train_cfg.VAL_FREQ == 0:
-      if verbose:
-        print('Epoch: {:4d},  loss: {:10.4f}'.format(epoch, np.mean(running_loss)))
-      running_losses.append(running_loss)
-      running_loss = []
+    # if epoch % train_cfg.VAL_FREQ == 0:
+      # if verbose:
+        # print('Epoch: {:4d},  loss: {:10.4f}'.format(epoch, np.mean(running_loss)))
+    running_losses.append(running_loss)
+    running_loss = 0
+
+  return running_losses
 
 class train_cfg_vbll:
   NUM_EPOCHS = 1000

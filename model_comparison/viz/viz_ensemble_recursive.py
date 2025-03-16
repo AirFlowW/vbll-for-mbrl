@@ -1,34 +1,29 @@
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 import torch
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 
 from model_comparison.viz.viz_utils import init_plot, set_size
 from vbll.layers.regression import VBLLReturn
 
-def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_path=None, ax = None, default_colors = None):
-    if ax is not None:
-        plt = ax
-    else:
-        plt = matplotlib.pyplot
-        init_plot("model_comparison/viz/scientific_style_thompson.mplstyle")
-        x_size, subplots_height = set_size(subplots=(1,1))
-        y_size = subplots_height
-        plt.figure(figsize=(x_size,y_size))
-        default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        fontsize = 12
-    
-    Thompson = True
+def viz_ensemble(ensemble_model, gradient_based_update, dataloader, stdevs = 1., title = None, save_path=None):
+    init_plot("model_comparison/viz/scientific_style_thompson.mplstyle")
+    x_size, subplots_height = set_size(subplots=(1,2))
+    y_size = subplots_height
+    fig, axs = plt.subplots(1, 2, figsize=(x_size, y_size), squeeze=False)
+    axs = axs.flatten()  # Flatten for easy iteration.
 
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    font_size = 11
+    
+    
     X = torch.linspace(-1.5, 1.5, 1000)[..., None]
     Xp = X.detach().numpy().squeeze()
 
     if isinstance(ensemble_model, list):
         iterator = ensemble_model
-        not_ensemble = True
     else:
         iterator = ensemble_model.params['members']
-        not_ensemble = False
 
     for i, model in enumerate(iterator):
         model.eval()
@@ -47,23 +42,19 @@ def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_pat
         
         Y_mean = Y_mean.detach().numpy().squeeze()
         Y_stdev = torch.sqrt(Y_stdev.squeeze()).detach().numpy()
-        
-        if Thompson:
-            plt.plot(Xp, Y_mean)
-        else:
-            color = default_colors[i]
-            plt.plot(Xp, Y_mean, color=color, alpha=0.9)
-            plt.fill_between(Xp, Y_mean - stdevs * Y_stdev, Y_mean + stdevs * Y_stdev, alpha=0.3, color=color, lw=0)
+            
+        axs[0].plot(Xp, Y_mean)
+        axs[0].fill_between(Xp, Y_mean - stdevs * Y_stdev, Y_mean + stdevs * Y_stdev, alpha=0.2)
 
+    axs[1].plot
         # for more visual uncertainty region
-        if not_ensemble:
-            plt.fill_between(Xp, Y_mean - 2 * stdevs * Y_stdev, Y_mean + 2 * stdevs * Y_stdev, alpha=0.2, color=color, lw=0)
+        # plt.fill_between(Xp, Y_mean - 2 * stdevs * Y_stdev, Y_mean + 2 * stdevs * Y_stdev, alpha=0.2)
+    # x_label = "Input"
+    # y_label = "Prediction"
+    # plt.xlabel(x_label)
+    # plt.ylabel(y_label)
     # Plot the actual data points from the dataloader
-    zorder = 0 if not_ensemble else 20
-    if Thompson:
-        plt.scatter(dataloader.dataset.X, dataloader.dataset.Y, color='k', label='Data', zorder=zorder)
-    else:
-        plt.scatter(dataloader.dataset.X, dataloader.dataset.Y, color='k', label='Data', s=10, zorder=zorder)
+    plt.scatter(dataloader.dataset.X, dataloader.dataset.Y, color='k', label='Data', zorder=5)
     
     plt.axis([-1.5, 1.5, -2, 2])
 
@@ -80,13 +71,8 @@ def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_pat
     #            ncol=len(names)+1,
     #            frameon=False,
     #            fontsize=font_size)
-
-    if Thompson:
-        plt.xlabel("Input", fontsize=fontsize)
-        plt.ylabel("Prediction", fontsize=fontsize)
     
-    if not ax:
-        plt.tight_layout()
+    plt.tight_layout()
 
     if title is not None:
         plt.title(title)
@@ -94,7 +80,7 @@ def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_pat
     if save_path is not None:
         plt.savefig(save_path, bbox_inches='tight')
         plt.close()
-    # else:
-    #     plt.show(block=True)
+    else:
+        plt.show(block=True)
 
     return
