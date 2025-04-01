@@ -61,6 +61,6 @@ thompson_ensemble = ensemble.GaussianEnsemble(mlp.cfg_mlp, ensemble.cfg_ensemble
 # viz
 viz_name = 'Thompson Ensemble'
 viz_ensemble.viz_ensemble(thompson_ensemble, dataloader, save_path=path_to_save_plots + f'{viz_name}_members.pdf')
-viz_model_with_mean_var.viz_model(thompson_ensemble, dataloader, title=viz_name, save_path=path_to_save_plots + f'{viz_name}.png')
+viz_model_with_mean_var.viz_model(thompson_ensemble, dataloader, title=viz_name, save_path=path_to_save_plots + f'{viz_name}.pdf')
 
-viz_model_with_mean_var.viz_model(model_noise_zeros, dataloader, title='VBLL MLP', save_path=path_to_save_plots + 'vbll_mlp.png')
+viz_model_with_mean_var.viz_model(model_noise_zeros, dataloader, title='VBLL MLP', save_path=path_to_save_plots + 'vbll_mlp.pdf')

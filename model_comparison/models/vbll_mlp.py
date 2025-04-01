@@ -33,7 +33,7 @@ class VBLLMLP(nn.Module):
 
     return self.params['out_layer'](x)
 
-def train_vbll(dataloader, model, train_cfg, verbose = True):
+def train_vbll(dataloader, model, train_cfg, verbose = True, return_loss = True):
   """Train a VBLL model."""
 
   # We explicitly list the model parameters and set last layer weight decay to 0
@@ -68,8 +68,10 @@ def train_vbll(dataloader, model, train_cfg, verbose = True):
         # print('Epoch: {:4d},  loss: {:10.4f}'.format(epoch, np.mean(running_loss)))
     running_losses.append(running_loss)
     running_loss = 0
-
-  return running_losses
+  if return_loss:
+    return running_losses
+  else:
+    return
 
 class train_cfg_vbll:
   NUM_EPOCHS = 1000

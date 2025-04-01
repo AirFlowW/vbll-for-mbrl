@@ -34,6 +34,7 @@ for dataset in datasets:
 
         dataset_wo_old_for_recursive_train, dataset_old_for_recursive_train, dataloader_for_full_train, recursive_models_pred = vbll_recursive.recursive_train_vbll(dataloader, model, train_cfg, verbose=True, recursive_train = True)
         
+        # saves the data for scientific plotting within another repo
         wd = os.getcwd()
         folder_name = "recursive"
         with open(f"{wd}/{folder_name}/dataloader_wo_old_for_recursive_train.pkl", "wb") as f:

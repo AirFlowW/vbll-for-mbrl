@@ -44,16 +44,6 @@ for dataset in datasets:
         set_seed(seed)
         model_noise_random = vbll_mlp.VBLLMLP(vbll_mlp.cfg_vbll(no_samples, 'dense', None, 'random'))
         random_noise_losses.append(vbll_mlp.train_vbll(dataloader, model_noise_random, vbll_mlp.train_cfg_vbll, verbose=False))
-        
-        # starting_loss_zero = np.mean(zero_noise_losses[-1][0])
-        # if starting_loss_zero > max_loss_model_zero_value:
-        #     max_loss_model_zero = model_noise_zeros
-        #     max_loss_model_zero_value = starting_loss_zero
-
-        # starting_loss_random = np.mean(random_noise_losses[-1][0])
-        # if starting_loss_random > max_loss_model_random_value:
-        #     max_loss_model_random = model_noise_random
-        #     max_loss_model_random_value = starting_loss_random
 
         train_count += 1
         print(f'Finished training {train_count}/{no_datasets*no_seeds} models')

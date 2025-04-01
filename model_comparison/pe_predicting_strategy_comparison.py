@@ -6,7 +6,6 @@ from model_comparison.dataset import SimpleFnDataset
 from model_comparison.models import pnn, probabilistic_ensemble as pe
 from model_comparison.models import default_gaussian_mean_var_ensemble as ensemble
 from model_comparison.utils.seed import set_seed
-from model_comparison.viz import viz_model_with_mean_var as viz_w_var
 
 from model_comparison.utils.general import path_to_save_plots
 from model_comparison.viz import viz_ensemble
@@ -42,16 +41,15 @@ if __name__ == "__main__":
     font_size = 12
 
     fig, axs = plt.subplots(1, 2, figsize=(x_size, y_size), squeeze=False, sharey=True)
-    axs = axs.flatten()  # Flatten for easy iteration.
-
+    axs = axs.flatten() 
     default_colors[0] = "#1F77B5"
     ax = axs[0]
-    viz_ensemble.viz_ensemble([model], dataloader, ax=ax,default_colors=default_colors)
+    viz_ensemble.viz_ensemble([model], dataloader, ax=ax,default_colors=default_colors, Thompson=False)
     ax.set_xlabel("Input",fontsize=font_size)
     ax.set_ylabel("Prediction",fontsize=font_size)
 
     ax=axs[1]
-    viz_ensemble.viz_ensemble(model, dataloader, ax=ax,default_colors=default_colors[1:])
+    viz_ensemble.viz_ensemble(model, dataloader, ax=ax,default_colors=default_colors[1:], Thompson=False)
     ax.set_xlabel("Input",fontsize=font_size)
     ax.set_ylabel("")
 

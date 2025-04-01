@@ -72,6 +72,8 @@ The simplest and most effective method to control the scale of uncertainty that
 we have found is modifying the KL regularization weight, REG_WEIGHT.
 We can train a different VBLL model with a larger REG_WEIGHT:"""
 if cfg_t.train_vbll_kl:
+    def train_vbll(dataloader, model, train_cfg, verbose = True):
+        return vbll_mlp.train_vbll(dataloader, model, train_cfg, verbose=verbose, return_loss=False)
     cfg = vbll_mlp.cfg_vbll
     new_cfgs = []
     for dataset in datasets:
@@ -85,7 +87,7 @@ if cfg_t.train_vbll_kl:
         
         models_to_train.append(model_run_config(kl_factor_string, vbll_mlp.train_cfg_vbll,
             [vbll_mlp.VBLLMLP(cfg) for cfg in new_cfgs], 
-            vbll_mlp.train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
+            train_vbll, viz_w_var.viz_model, cfg_sub_test(cfg_t.show_vbll_kl, None)))
         
 ## different parameterizations of last layer
 # Init train VBLL 'diagonal' model config

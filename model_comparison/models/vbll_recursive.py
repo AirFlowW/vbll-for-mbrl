@@ -51,10 +51,10 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
     on the rest of the data: use masks greatest zth values
     - train on all data points and then add a single point via recursive training: use point_for_recursive_train
     (uncomment point_for_recursive_train = (X, Y))
+    - train on all data points and then add a new dataset for recursive training: use extra_data_set
     """
 
-    # Single point adding for recursive training:
-    # if a point is given only this point is used for recursive training
+    # Single point adding for recursive training: (if a point is given only this point is used for recursive training)
     # point_for_recursive_train = (0., -2.0)
 
     # split data into full train and recursive train sets
@@ -95,7 +95,7 @@ def recursive_train_vbll(dataloader, model, recursive_train_cfg, verbose = True,
             return torch.tensor(x).float().unsqueeze(dim=1), torch.tensor(y).float().unsqueeze(dim=1) + noise
 
         X, Y = get_data()
-        number_old_data = 10 # 10
+        number_old_data = 10
         with_old_data = False
         random_indices = random.sample(range(X_all_data.shape[0]), number_old_data)
         random_indices = random.sample(range(X_all_data.shape[0]), number_old_data)

@@ -6,7 +6,7 @@ import matplotlib.pyplot
 from model_comparison.viz.viz_utils import init_plot, set_size
 from vbll.layers.regression import VBLLReturn
 
-def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_path=None, ax = None, default_colors = None):
+def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_path=None, ax = None, default_colors = None, Thompson = True):
     if ax is not None:
         plt = ax
     else:
@@ -18,7 +18,6 @@ def viz_ensemble(ensemble_model, dataloader, stdevs = 1., title = None, save_pat
         default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         fontsize = 12
     
-    Thompson = True
 
     X = torch.linspace(-1.5, 1.5, 1000)[..., None]
     Xp = X.detach().numpy().squeeze()

@@ -1,3 +1,6 @@
+# Configure the test suite settings below.
+# Specify which models to display and train, as well as the dataset size(s) to use.
+# It is possible to define multiple dataset sizes for testing to see the runtime increase with increasing dataset size.
 class cfg_test:
     show_dataset = False
 
